@@ -1,0 +1,903 @@
+<title>CellSentinel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Layout: fixed sidebar (bottom tab bar on phones) + scrolling instrument panels; dark-first, engineering-console feel */
+:root{
+  color-scheme:dark;
+  --bg:#0b1115; --panel:#111a20; --panel2:#17232b; --line:#243540; --grid:#1a2931;
+  --fg:#dce8ec; --muted:#8aa0ab; --dim:#62777f;
+  --accent:#4cc9f0; --accent-ink:#04202a;
+  --good:#4ade80; --warn:#f5b83d; --crit:#ff6b6b;
+  --c1:#4cc9f0; --c2:#f9c74f; --c3:#90be6d; --c4:#ff6b6b; --c5:#b79cff; --c6:#f8961e; --c7:#f78fb3; --c8:#c7d3d9;
+  --font-ui:'Barlow Semi Condensed','Arial Narrow',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    color-scheme:light;
+    --bg:#edf1f3; --panel:#ffffff; --panel2:#f2f6f8; --line:#d2dce1; --grid:#e3eaee;
+    --fg:#13222a; --muted:#566b76; --dim:#7f929c;
+    --accent:#0a7fa8; --accent-ink:#ffffff;
+    --good:#1f8f4e; --warn:#a86d00; --crit:#cc3333;
+    --c1:#0a7fa8; --c2:#a87a00; --c3:#3c8a2e; --c4:#cf3a3a; --c5:#6b46c1; --c6:#c4560e; --c7:#c2347f; --c8:#5a6b75;
+  }
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#edf1f3; --panel:#ffffff; --panel2:#f2f6f8; --line:#d2dce1; --grid:#e3eaee;
+  --fg:#13222a; --muted:#566b76; --dim:#7f929c;
+  --accent:#0a7fa8; --accent-ink:#ffffff;
+  --good:#1f8f4e; --warn:#a86d00; --crit:#cc3333;
+  --c1:#0a7fa8; --c2:#a87a00; --c3:#3c8a2e; --c4:#cf3a3a; --c5:#6b46c1; --c6:#c4560e; --c7:#c2347f; --c8:#5a6b75;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-ui);font-size:15px;line-height:1.45}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+
+.app{display:grid;grid-template-columns:228px minmax(0,1fr);min-height:100dvh}
+.side{position:sticky;top:0;height:100dvh;display:flex;flex-direction:column;gap:22px;padding:20px 14px;background:var(--panel);border-right:1px solid var(--line)}
+.brand{display:flex;gap:10px;align-items:center;padding:0 6px}
+.brand svg{flex:none}
+.brand b{display:block;font-size:19px;letter-spacing:.01em;line-height:1.1}
+.brand small{display:block;font:500 10.5px var(--font-mono);color:var(--muted);letter-spacing:.04em;margin-top:2px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;gap:11px;align-items:center;padding:9px 10px;border-radius:5px;color:var(--muted);text-decoration:none;font-weight:500}
+.nav a svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.nav a:hover{background:var(--panel2);color:var(--fg)}
+.nav a[aria-current="page"]{background:var(--panel2);color:var(--accent);box-shadow:inset 2px 0 0 var(--accent)}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding:0 6px}
+.side-foot .row{display:flex;justify-content:space-between;align-items:center;gap:8px;font:12px var(--font-mono);color:var(--muted)}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:5px;padding:6px 10px;color:var(--muted);font-size:13px}
+.ghost:hover{color:var(--fg);border-color:var(--muted)}
+
+main{min-width:0;padding:18px clamp(16px,2.6vw,32px) 40px;display:flex;flex-direction:column;gap:16px}
+.top{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;justify-content:space-between}
+.top h1{margin:0;font-size:24px;font-weight:600;letter-spacing:.005em}
+.top .sub{color:var(--muted);font-size:13px;display:block;margin-top:1px}
+.simbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:5px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;background:transparent;padding:6px 11px;font-size:13.5px;color:var(--muted);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button:hover{color:var(--fg)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:5px;padding:6px 12px;font-size:13.5px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.danger{border-color:var(--crit);color:var(--crit)}
+.chip{display:inline-block;font:600 11px var(--font-mono);letter-spacing:.05em;padding:3px 8px;border-radius:3px;border:1px solid currentColor;white-space:nowrap}
+.chip.good{color:var(--good)} .chip.warn{color:var(--warn)} .chip.crit{color:var(--crit)} .chip.mute{color:var(--muted)} .chip.acc{color:var(--accent)}
+
+.view{display:none;flex-direction:column;gap:16px;min-width:0}
+.view.active{display:flex}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px 16px;min-width:0}
+.panel h2{margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.panel h2 small{font:400 11.5px var(--font-mono);letter-spacing:0;text-transform:none;color:var(--dim)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:10px}
+.kpis.k4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:900px){.kpis.k4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:11px 14px 12px;min-width:0}
+.kpi .l{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.kpi .v{font:500 26px/1.15 var(--font-mono);font-variant-numeric:tabular-nums;margin-top:3px;white-space:nowrap}
+.kpi .v small{font-size:13px;color:var(--muted);margin-left:3px}
+.kpi .s{font-size:12.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .v.good{color:var(--good)} .kpi .v.warn{color:var(--warn)} .kpi .v.crit{color:var(--crit)}
+.meter{height:4px;background:var(--grid);border-radius:2px;margin-top:7px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent)}
+.controls{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center}
+.controls label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);letter-spacing:.04em;min-width:150px}
+.controls label span.val{font:500 13px var(--font-mono);color:var(--fg)}
+.controls label.row{flex-direction:row;align-items:center;gap:8px;min-width:0}
+input[type=range]{accent-color:var(--accent);width:100%;min-width:130px}
+select{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:6px 8px}
+.grid-main{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px}
+.g-v{grid-column:span 8}.g-a{grid-column:span 4;grid-row:span 2}.g-i,.g-t{grid-column:span 4}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.two-t{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px}
+@media (max-width:1180px){.g-v,.g-a{grid-column:span 12;grid-row:auto}.g-i,.g-t{grid-column:span 6}.two{grid-template-columns:1fr}}
+@media (max-width:900px){.two-t{grid-template-columns:1fr}}
+
+/* chart */
+.chart{min-width:0}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin-bottom:6px;font:11.5px var(--font-mono);color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:14px;height:0;border-top:2.5px solid;border-radius:2px}
+.legend i.dash{border-top-style:dashed}
+.cwrap{position:relative;width:100%}
+.cwrap canvas{position:absolute;inset:0;display:block;touch-action:pan-y}
+.tip{position:absolute;pointer-events:none;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:6px 9px;font:11.5px/1.5 var(--font-mono);z-index:3;box-shadow:0 6px 18px rgba(0,0,0,.28);white-space:nowrap}
+.tip b{display:block;color:var(--muted);font-weight:500;margin-bottom:2px}
+.tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+
+/* log */
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;max-height:430px;overflow:auto}
+.log li{display:grid;grid-template-columns:62px auto 1fr;gap:8px;align-items:baseline;font-size:13.5px;line-height:1.35}
+.log time{font:11.5px var(--font-mono);color:var(--dim)}
+.active-alerts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;min-height:26px}
+
+/* heatmap */
+.heat{display:grid;grid-template-columns:30px repeat(8,minmax(0,1fr));gap:4px;max-width:640px}
+.heat .hl{font:500 10.5px var(--font-mono);color:var(--dim);display:flex;align-items:center;justify-content:center}
+.hc{aspect-ratio:1.1;border:0;border-radius:3px;font:500 11.5px var(--font-mono);display:flex;align-items:center;justify-content:center;position:relative;padding:0}
+.hc.hot{outline:2px solid var(--fg);outline-offset:-2px}
+.hc.hot::after{content:"▲";position:absolute;top:1px;right:3px;font-size:7px}
+.hc.sel{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent)}
+@media (prefers-reduced-motion:no-preference){.hc.hot{animation:pulse 1.4s ease-in-out infinite}@keyframes pulse{50%{outline-color:transparent}}}
+.scale{display:flex;flex-direction:column;gap:4px;margin-top:14px;max-width:640px}
+.scale .bar{height:10px;border-radius:2px}
+.scale .ticks{position:relative;height:16px;font:10.5px var(--font-mono);color:var(--muted)}
+.scale .ticks span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.dl{display:grid;grid-template-columns:auto 1fr;gap:5px 16px;margin:0;font-size:14px}
+.dl dt{color:var(--muted)} .dl dd{margin:0;font:13px var(--font-mono);text-align:right}
+hr.sp{border:0;border-top:1px solid var(--line);margin:14px 0}
+
+/* balancing */
+.brow{display:grid;grid-template-columns:30px minmax(0,1fr) 168px;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid var(--grid)}
+.brow:last-child{border-bottom:0}
+.brow .lbl{font:600 12px var(--font-mono);color:var(--muted)}
+.btrack{position:relative;height:18px;background:var(--panel2);border-radius:3px}
+.btrack::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;border-left:1px solid var(--muted)}
+.btrack .th{position:absolute;top:0;bottom:0;background:var(--grid);opacity:.9}
+.btrack .fill{position:absolute;top:3px;bottom:3px;border-radius:2px;background:var(--accent)}
+.btrack .fill.hi{background:var(--warn)}
+.bval{font:12px var(--font-mono);text-align:right;line-height:1.25}
+.bval small{display:block;color:var(--muted);font-size:10.5px;white-space:nowrap}
+.stat{display:inline-block;font:600 10px var(--font-mono);letter-spacing:.05em;padding:1px 6px;border-radius:3px;border:1px solid currentColor;margin-left:6px}
+
+/* tables, docs */
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td.n,th.n{text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+tr.hl td{background:var(--panel2);color:var(--accent)}
+.note{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+.eq{font:13px/1.65 var(--font-mono);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:10px 14px;overflow-x:auto;white-space:pre;margin:8px 0}
+.doc{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.doc section.panel{display:flex;flex-direction:column;gap:8px}
+.doc h3{margin:0;font-size:19px;font-weight:600}
+.doc h4{margin:8px 0 0;font-size:13px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.doc p,.doc li{max-width:78ch;margin:0}
+.doc ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.doc code{font:12.5px var(--font-mono);background:var(--panel2);padding:1px 5px;border-radius:3px}
+.qa{display:grid;gap:10px}
+.qa div{padding-left:12px;border-left:2px solid var(--line)}
+.qa b{display:block;margin-bottom:2px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+
+.toast{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:5px;font-size:13.5px;z-index:20}
+#tripBar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;border:1px solid var(--crit);background:var(--panel);color:var(--crit);border-radius:6px;padding:10px 14px;font-weight:600}
+#tripBar span{flex:1;min-width:180px}
+#tripBar[hidden],.toast[hidden]{display:none}
+
+@media (max-width:820px){
+  .app{display:block}
+  .side{position:fixed;z-index:10;left:0;right:0;bottom:0;top:auto;height:auto;flex-direction:row;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));border-right:0;border-top:1px solid var(--line);gap:0}
+  .brand,.side-foot{display:none}
+  .nav{flex-direction:row;flex:1;gap:0;justify-content:space-between}
+  .nav a{flex:1;flex-direction:column;gap:2px;font-size:10.5px;padding:6px 2px;text-align:center;min-width:0}
+  .nav a[aria-current="page"]{box-shadow:none}
+  main{padding-bottom:96px}
+  .g-i,.g-t{grid-column:span 12}
+  .top h1{font-size:21px}
+  .kpi .v{font-size:22px}
+  .brow{grid-template-columns:26px minmax(0,1fr) 140px}
+  .mbrand{display:flex!important}
+}
+.mbrand{display:none;align-items:center;gap:8px;font-weight:700;font-size:15px;color:var(--accent)}
+</style>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="8" width="26" height="18" rx="4" fill="none" stroke="var(--accent)" stroke-width="2"/><rect x="29" y="14" width="3" height="6" rx="1" fill="var(--accent)"/><rect x="7" y="12" width="4" height="10" rx="1" fill="var(--accent)"/><rect x="13" y="12" width="4" height="10" rx="1" fill="var(--accent)"/><rect x="19" y="12" width="4" height="10" rx="1" fill="var(--accent)" opacity=".35"/></svg>
+      <div><b>CellSentinel</b><small>8S8P BMS CONSOLE</small></div>
+    </div>
+    <nav class="nav" id="nav" aria-label="Views">
+      <a href="#overview" data-view="overview"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Overview</span></a>
+      <a href="#soc" data-view="soc"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2M6 10v4M10 10v4"/></svg><span>SOC &amp; SOH</span></a>
+      <a href="#thermal" data-view="thermal"><svg viewBox="0 0 24 24"><path d="M14 14.76V4a2 2 0 0 0-4 0v10.76a4 4 0 1 0 4 0z"/></svg><span>Thermal</span></a>
+      <a href="#balance" data-view="balance"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg><span>Balancing</span></a>
+      <a href="#charge" data-view="charge"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg><span>CC-CV</span></a>
+      <a href="#docs" data-view="docs"><svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5z"/><path d="M9 12h6M9 16h6"/></svg><span>Docs</span></a>
+    </nav>
+    <div class="side-foot">
+      <div class="row"><span>SIM CLOCK</span><span id="clock">00:00:00</span></div>
+      <div class="row"><span>PACK</span><span>29.6 V · 24 Ah</span></div>
+      <button class="ghost" id="themeBtn" type="button">Theme: auto</button>
+    </div>
+  </aside>
+
+  <main>
+    <header class="top">
+      <div>
+        <div class="mbrand"><svg width="22" height="22" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="8" width="26" height="18" rx="4" fill="none" stroke="currentColor" stroke-width="2.4"/><rect x="7" y="12" width="4" height="10" fill="currentColor"/><rect x="13" y="12" width="4" height="10" fill="currentColor"/></svg>CellSentinel</div>
+        <h1 id="viewTitle">Overview</h1>
+        <span class="sub" id="viewSub"></span>
+      </div>
+      <div class="simbar">
+        <span class="chip mute" id="stateChip">IDLE</span>
+        <div class="seg" id="speedSeg" role="group" aria-label="Simulation speed">
+          <button type="button" data-s="1" aria-pressed="false">1×</button>
+          <button type="button" data-s="10" aria-pressed="false">10×</button>
+          <button type="button" data-s="60" aria-pressed="true">60×</button>
+          <button type="button" data-s="300" aria-pressed="false">300×</button>
+          <button type="button" data-s="1000" aria-pressed="false">1000×</button>
+        </div>
+        <button class="btn" id="playBtn" type="button">Pause</button>
+        <button class="btn" id="resetBtn" type="button">Reset pack</button>
+      </div>
+    </header>
+    <div id="tripBar" hidden><span id="tripMsg"></span><button class="btn danger" id="tripReset" type="button">Reset protection</button></div>
+
+    <!-- OVERVIEW -->
+    <section class="view" id="v-overview">
+      <div class="kpis k4" id="kpiOv"></div>
+      <div class="panel">
+        <div class="controls">
+          <div>
+            <div class="note" style="margin:0 0 5px">Drive profile</div>
+            <div class="seg" id="modeSeg" role="group" aria-label="Load profile">
+              <button type="button" data-m="idle">Idle</button>
+              <button type="button" data-m="urban">Urban</button>
+              <button type="button" data-m="highway">Highway</button>
+              <button type="button" data-m="sport">Sport</button>
+              <button type="button" data-m="charge">Charge</button>
+            </div>
+          </div>
+          <label>Charger rate <span class="val" id="cRateO"></span><input type="range" id="cRate" min="0.1" max="1.5" step="0.05" value="0.5"></label>
+          <div class="note" id="modeNote" style="margin:0;max-width:44ch"></div>
+        </div>
+      </div>
+      <div class="grid-main">
+        <div class="panel g-v"><h2>Cell voltages <small>V · 8 series groups</small></h2><div id="chV"></div></div>
+        <div class="panel g-a"><h2>Alerts &amp; events <button class="ghost" id="copyCsv" type="button" style="padding:3px 9px;font-size:12px">Copy CSV log</button></h2><div class="active-alerts" id="activeAlerts"></div><ul class="log" id="log"></ul></div>
+        <div class="panel g-i"><h2>Pack current <small>A · + discharge</small></h2><div id="chI"></div></div>
+        <div class="panel g-t"><h2>Temperature <small>°C</small></h2><div id="chT"></div></div>
+      </div>
+    </section>
+
+    <!-- SOC & SOH -->
+    <section class="view" id="v-soc">
+      <div class="two">
+        <div class="panel"><h2>Coulomb counting vs true SOC <small>%</small></h2><div id="chSoc"></div><div class="kpis" id="socKpi" style="margin-top:12px"></div></div>
+        <div class="panel">
+          <h2>Estimator setup</h2>
+          <div class="controls">
+            <label>Current sensor offset <span class="val" id="offO"></span><input type="range" id="off" min="-2" max="2" step="0.05" value="0.4"></label>
+            <label class="row"><input type="checkbox" id="noise" checked> Add sensor noise (σ 50 mA)</label>
+            <button class="btn" id="recal" type="button">Recalibrate to true SOC</button>
+          </div>
+          <div class="eq" id="socEq"></div>
+          <p class="note">A small, constant sensor offset is integrated for as long as the pack runs, so the estimate drifts away from the true charge. A real BMS corrects this at rest from the open-circuit voltage and at the end of a full charge. Raise the simulation speed to watch the drift build up.</p>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>SOH degradation model <small>capacity fade and resistance growth vs cycles</small></h2>
+        <div class="controls" style="margin-bottom:12px">
+          <label>Average cell temperature <span class="val" id="sT"></span><input type="range" id="pT" min="15" max="50" step="1" value="30"></label>
+          <label>Depth of discharge <span class="val" id="sD"></span><input type="range" id="pD" min="20" max="100" step="5" value="80"></label>
+          <label>Charge C-rate <span class="val" id="sC"></span><input type="range" id="pC" min="0.2" max="2" step="0.1" value="0.5"></label>
+          <label>Cycles per day <span class="val" id="sP"></span><input type="range" id="pP" min="0.25" max="3" step="0.25" value="1"></label>
+        </div>
+        <div class="kpis" id="sohKpi" style="margin-bottom:12px"></div>
+        <div class="two">
+          <div><h2 style="margin-bottom:6px">Capacity retention <small>% of rated</small></h2><div id="chSoh"></div></div>
+          <div><h2 style="margin-bottom:6px">Internal resistance <small>× initial</small></h2><div id="chRes"></div></div>
+        </div>
+        <h2 style="margin-top:16px">Usage scenarios</h2>
+        <div class="tw"><table id="scen"></table></div>
+      </div>
+    </section>
+
+    <!-- THERMAL -->
+    <section class="view" id="v-thermal">
+      <div class="kpis" id="kpiT"></div>
+      <div class="two-t">
+        <div class="panel">
+          <h2>Pack heatmap <small>rows = series groups S1–S8 · columns = parallel cells P1–P8</small></h2>
+          <div class="heat" id="heat"></div>
+          <div class="scale"><div class="bar" id="scaleBar"></div><div class="ticks" id="scaleTicks"></div></div>
+          <p class="note">Cells at or above 45 °C get a ▲ marker and a white outline. At 55 °C the contactor opens and the pack trips.</p>
+        </div>
+        <div class="panel">
+          <h2>Selected cell <small id="selName"></small></h2>
+          <dl class="dl" id="cellDl"></dl>
+          <hr class="sp">
+          <div class="controls">
+            <label>Ambient <span class="val" id="ambO"></span><input type="range" id="amb" min="10" max="45" step="1" value="28"></label>
+            <label>Cooling <select id="cool"><option value="natural">Natural air (25 K/W)</option><option value="forced">Forced air (10 K/W)</option></select></label>
+          </div>
+          <div class="controls" style="margin-top:12px">
+            <button class="btn" id="hotBtn" type="button">Inject hot cell (S4·P5, +1.5 W)</button>
+            <button class="btn" id="clrFault" type="button">Clear faults</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel"><h2>Temperature history <small>°C</small></h2><div id="chT2"></div></div>
+    </section>
+
+    <!-- BALANCING -->
+    <section class="view" id="v-balance">
+      <div class="kpis" id="kpiB"></div>
+      <div class="two">
+        <div class="panel"><h2>Cell deviation from pack mean <small>mV · band = balancing threshold</small></h2><div id="bars"></div></div>
+        <div class="panel">
+          <h2>Balancing control</h2>
+          <div class="controls">
+            <div>
+              <div class="note" style="margin:0 0 5px">Strategy</div>
+              <div class="seg" id="balSeg" role="group" aria-label="Balancing strategy">
+                <button type="button" data-b="off">Off</button>
+                <button type="button" data-b="passive">Passive (bleed)</button>
+                <button type="button" data-b="active">Active (transfer)</button>
+              </div>
+            </div>
+            <label>Threshold <span class="val" id="thO"></span><input type="range" id="th" min="5" max="50" step="1" value="10"></label>
+          </div>
+          <div class="controls" style="margin-top:12px">
+            <button class="btn" id="mkImb" type="button">Create imbalance</button>
+            <button class="btn" id="weakBtn" type="button">Weak cell (S6)</button>
+            <button class="btn" id="clrFault2" type="button">Clear faults</button>
+          </div>
+          <p class="note">Passive balancing burns the extra charge of high cells in a 40 Ω resistor (about 100 mA). Active balancing moves 2 A from the highest cell to the lowest with about 90 % efficiency. Balancing runs only when pack current is under 3 A.</p>
+          <h2 style="margin-top:14px">Voltage spread <small>mV</small></h2>
+          <div id="chDv"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHARGING -->
+    <section class="view" id="v-charge">
+      <div class="panel">
+        <h2>CC-CV charging simulator <small>single 18650 · 3.0 Ah NMC · Thévenin model</small></h2>
+        <div class="controls">
+          <label>C-rate <span class="val" id="chCO"></span><input type="range" id="chC" min="0.1" max="2" step="0.05" value="0.5"></label>
+          <label>Start SOC <span class="val" id="chSO"></span><input type="range" id="chS" min="0" max="90" step="5" value="10"></label>
+          <label>Ambient <span class="val" id="chTO"></span><input type="range" id="chT" min="0" max="45" step="1" value="25"></label>
+          <label>CV setpoint <select id="chV2"><option value="4.2">4.20 V</option><option value="4.15">4.15 V</option><option value="4.1">4.10 V</option></select></label>
+          <label>Termination <select id="chK"><option value="0.02">0.02 C</option><option value="0.05" selected>0.05 C</option><option value="0.1">0.10 C</option></select></label>
+        </div>
+        <div id="chWarn" class="note" style="color:var(--warn)"></div>
+      </div>
+      <div class="kpis" id="chKpi"></div>
+      <div class="two">
+        <div class="panel"><h2>Terminal voltage <small>V</small></h2><div id="cV"></div></div>
+        <div class="panel"><h2>Charge current <small>A</small></h2><div id="cI"></div></div>
+        <div class="panel"><h2>State of charge <small>%</small></h2><div id="cS"></div></div>
+        <div class="panel"><h2>Cell temperature <small>°C</small></h2><div id="cT"></div></div>
+      </div>
+      <div class="panel"><h2>C-rate comparison <small>same start SOC, temperature and CV setpoint</small></h2><div class="tw"><table id="cmp"></table></div></div>
+    </section>
+
+    <!-- DOCS -->
+    <section class="view" id="v-docs">
+      <div class="doc" id="docRoot"></div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(()=>{
+'use strict';
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
+const sum=a=>a.reduce((s,x)=>s+x,0), mean=a=>sum(a)/a.length;
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fx=(n,d=1)=>Number.isFinite(n)?n.toFixed(d):'–';
+function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let rng=mulberry(11); const rnd=(a,b)=>a+(b-a)*rng();
+const hms=t=>{t=Math.floor(t);const h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;return [h,m,s].map(x=>String(x).padStart(2,'0')).join(':')};
+const hmS=h=>{if(!Number.isFinite(h)||h<0)return '–';const m=Math.round(h*60);return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`};
+const hm=h=>{if(!Number.isFinite(h)||h<0)return '–';const m=Math.round(h*60);return `${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')} min`};
+
+/* ---------- constants ---------- */
+const NS=8, NP=8, QC=3.0, QP=QC*NP, VNOM=3.7, PACK_KWH=VNOM*NS*QP/1000, HEAT_K=1.3;
+const TRIP_T=55, WARN_T=45, UV=3.0, OV=4.25;
+const OCV=[[0,3.0],[.05,3.28],[.1,3.42],[.2,3.54],[.3,3.62],[.4,3.67],[.5,3.73],[.6,3.81],[.7,3.9],[.8,3.99],[.9,4.09],[1,4.2]];
+function ocvf(s){s=clamp(s,0,1);for(let k=1;k<OCV.length;k++){if(s<=OCV[k][0]){const a=OCV[k-1],b=OCV[k];return a[1]+(b[1]-a[1])*(s-a[0])/(b[0]-a[0]);}}return 4.2}
+const fTr=T=>Math.exp(2800*(1/(T+273.15)-1/298.15)); // resistance rises when cold
+
+/* ---------- SOH model ---------- */
+const SOHP={T:30,dod:0.8,cr:0.5,cpd:1};
+const A_SQRT=0.4, B_LIN=0.0075;
+function sohLoss(N,p){const fT=Math.pow(2,(p.T-25)/15),fD=Math.pow(p.dod/0.8,1.4),fC=1+0.4*(p.cr-0.5);return A_SQRT*Math.sqrt(N)*fT+B_LIN*N*fD*fC;}
+function resGrow(N,p){const fT=Math.pow(2,(p.T-25)/15),fC=1+0.4*(p.cr-0.5);return 1+0.0006*N*fT*fC;}
+function cyclesToEol(p){let N=0;while(N<20000&&sohLoss(N,p)<20)N+=1;return N;}
+
+/* ---------- chart ---------- */
+const charts=[];
+function niceTicks(lo,hi,n){const r=hi-lo,raw=r/n,p=Math.pow(10,Math.floor(Math.log10(raw))),f=raw/p;const step=(f<1.5?1:f<3?2:f<7?5:10)*p;const a=Math.floor(lo/step+1e-9)*step,b=Math.ceil(hi/step-1e-9)*step;const t=[];for(let v=a;v<=b+step*1e-6;v+=step)t.push(+v.toFixed(10));return t;}
+const col=c=>c&&c.startsWith('var(')?css(c.slice(4,-1)):c;
+class Chart{
+  constructor(host,o){
+    this.o=Object.assign({h:220,yFmt:v=>v.toFixed(2),xFmt:v=>v.toFixed(0),xName:'min',lines:[],bands:[],vlines:[],yMin:null,yMax:null,xMin:null,xMax:null},o);
+    this.xs=[];this.series=[];this.hover=-1;this.key='';
+    host.innerHTML='';host.classList.add('chart');
+    this.legend=document.createElement('div');this.legend.className='legend';
+    this.wrap=document.createElement('div');this.wrap.className='cwrap';this.wrap.style.height=this.o.h+'px';
+    this.cv=document.createElement('canvas');this.tip=document.createElement('div');this.tip.className='tip';this.tip.hidden=true;
+    this.wrap.append(this.cv,this.tip);host.append(this.legend,this.wrap);
+    this.cv.setAttribute('role','img');this.cv.setAttribute('aria-label',this.o.label||'Chart');
+    new ResizeObserver(()=>this.resize()).observe(this.wrap);
+    this.cv.addEventListener('pointermove',e=>this.onMove(e));
+    this.cv.addEventListener('pointerleave',()=>{this.hover=-1;this.tip.hidden=true;this.draw();});
+    charts.push(this);
+  }
+  setData(xs,series){
+    this.xs=xs;this.series=series;
+    const key=series.map(s=>s.name).join('|');
+    if(key!==this.key){this.key=key;this.legend.innerHTML=series.length>1||series.some(s=>s.legend)?series.map(s=>`<span><i class="${s.dash?'dash':''}" style="border-color:${s.color}"></i>${s.name}</span>`).join(''):'';this.legend.style.display=this.legend.innerHTML?'flex':'none';}
+    this.draw();
+  }
+  resize(){const r=this.wrap.getBoundingClientRect(),d=window.devicePixelRatio||1;this.w=Math.round(r.width);this.h=Math.round(r.height);if(!this.w)return;this.cv.width=this.w*d;this.cv.height=this.h*d;this.ctx=this.cv.getContext('2d');this.ctx.setTransform(d,0,0,d,0,0);this.draw();}
+  draw(){
+    const w=this.w,h=this.h,c=this.ctx,xs=this.xs,o=this.o;if(!w||!h||!c)return;c.clearRect(0,0,w,h);if(xs.length<2)return;
+    const m={l:48,r:12,t:10,b:24},pw=w-m.l-m.r,ph=h-m.t-m.b;
+    let x0=o.xMin??xs[0],x1=o.xMax??xs[xs.length-1];if(x1<=x0)x1=x0+1;
+    let lo=Infinity,hi=-Infinity;
+    for(const s of this.series)for(const y of s.ys){if(y==null||!isFinite(y))continue;if(y<lo)lo=y;if(y>hi)hi=y;}
+    for(const l of o.lines)if(l.include){lo=Math.min(lo,l.y);hi=Math.max(hi,l.y);}
+    if(o.yMin!=null)lo=o.yMin;if(o.yMax!=null)hi=o.yMax;
+    if(!isFinite(lo)){lo=0;hi=1;}if(hi-lo<1e-9)hi=lo+1;
+    const pad=(hi-lo)*.06;if(o.yMin==null)lo-=pad;if(o.yMax==null)hi+=pad;
+    const ty=niceTicks(lo,hi,5);if(o.yMin==null)lo=Math.min(lo,ty[0]);if(o.yMax==null)hi=Math.max(hi,ty[ty.length-1]);
+    const X=x=>m.l+(x-x0)/(x1-x0)*pw,Y=y=>m.t+ph-(y-lo)/(hi-lo)*ph;
+    this.geo={m,x0,x1,pw,lo,hi,X,Y};
+    const grid=css('--grid'),muted=css('--muted'),bg=css('--panel');
+    c.font='10.5px '+css('--font-mono').split(',')[0].replace(/^'|'$/g,'')+', monospace';
+    for(const b of o.bands){const bx0=clamp(X(b.x0),m.l,m.l+pw),bx1=clamp(X(b.x1),m.l,m.l+pw);if(bx1<=bx0)continue;c.globalAlpha=.1;c.fillStyle=col(b.color);c.fillRect(bx0,m.t,bx1-bx0,ph);c.globalAlpha=1;c.fillStyle=muted;c.textAlign='left';c.fillText(b.label,bx0+5,m.t+11);}
+    c.lineWidth=1;c.strokeStyle=grid;c.fillStyle=muted;c.textAlign='right';
+    for(const v of ty){if(v<lo-1e-9||v>hi+1e-9)continue;const y=Math.round(Y(v))+.5;c.beginPath();c.moveTo(m.l,y);c.lineTo(m.l+pw,y);c.stroke();c.fillText(o.yFmt(v,true),m.l-6,y+3.5);}
+    c.textAlign='center';
+    for(const v of niceTicks(x0,x1,Math.max(2,Math.floor(pw/90)))){if(v<x0-1e-9||v>x1+1e-9)continue;c.fillText(o.xFmt(v),X(v),h-7);}
+    for(const l of o.lines){if(l.y<lo||l.y>hi)continue;const y=Math.round(Y(l.y))+.5;c.strokeStyle=col(l.color);c.setLineDash([5,4]);c.lineWidth=1.2;c.beginPath();c.moveTo(m.l,y);c.lineTo(m.l+pw,y);c.stroke();c.setLineDash([]);c.fillStyle=col(l.color);c.textAlign='right';c.fillText(l.label,m.l+pw-4,y-4);}
+    for(const v of o.vlines){if(v.x<x0||v.x>x1)continue;const x=Math.round(X(v.x))+.5;c.strokeStyle=col(v.color||'var(--muted)');c.setLineDash([3,3]);c.lineWidth=1;c.beginPath();c.moveTo(x,m.t);c.lineTo(x,m.t+ph);c.stroke();c.setLineDash([]);c.fillStyle=col(v.color||'var(--muted)');c.textAlign='left';c.fillText(v.label,x+4,m.t+ph-6);}
+    c.save();c.beginPath();c.rect(m.l,m.t-2,pw,ph+4);c.clip();
+    for(const s of this.series){
+      const sc=col(s.color);c.lineJoin='round';c.lineCap='round';
+      if(s.area){const g=c.createLinearGradient(0,m.t,0,m.t+ph);g.addColorStop(0,sc);g.addColorStop(1,sc);c.globalAlpha=.12;c.fillStyle=g;c.beginPath();let st=false;xs.forEach((x,i)=>{const y=s.ys[i];if(y==null)return;if(!st){c.moveTo(X(x),m.t+ph);st=true;}c.lineTo(X(x),Y(y));});c.lineTo(X(xs[xs.length-1]),m.t+ph);c.closePath();c.fill();c.globalAlpha=1;}
+      c.strokeStyle=sc;c.lineWidth=s.w||1.8;c.setLineDash(s.dash?[6,4]:[]);c.beginPath();let st=false;
+      xs.forEach((x,i)=>{const y=s.ys[i];if(y==null||!isFinite(y)){st=false;return;}if(!st){c.moveTo(X(x),Y(y));st=true;}else c.lineTo(X(x),Y(y));});c.stroke();c.setLineDash([]);
+    }
+    c.restore();
+    for(const s of this.series){if(s.noDot)continue;const li=xs.length-1,y=s.ys[li];if(y==null||!isFinite(y))continue;c.fillStyle=col(s.color);c.strokeStyle=bg;c.lineWidth=2;c.beginPath();c.arc(X(xs[li]),Y(y),3.5,0,7);c.stroke();c.fill();}
+    if(this.hover>=0&&this.hover<xs.length){
+      const x=Math.round(X(xs[this.hover]))+.5;c.strokeStyle=muted;c.lineWidth=1;c.setLineDash([2,3]);c.beginPath();c.moveTo(x,m.t);c.lineTo(x,m.t+ph);c.stroke();c.setLineDash([]);
+      for(const s of this.series){const y=s.ys[this.hover];if(y==null||!isFinite(y))continue;c.fillStyle=col(s.color);c.strokeStyle=bg;c.lineWidth=2;c.beginPath();c.arc(X(xs[this.hover]),Y(y),4,0,7);c.stroke();c.fill();}
+    }
+  }
+  onMove(e){
+    if(!this.geo||this.xs.length<2)return;const r=this.cv.getBoundingClientRect(),px=e.clientX-r.left,g=this.geo;
+    const xv=g.x0+(px-g.m.l)/g.pw*(g.x1-g.x0);let bi=0,bd=Infinity;
+    for(let i=0;i<this.xs.length;i++){const d=Math.abs(this.xs[i]-xv);if(d<bd){bd=d;bi=i;}}
+    this.hover=bi;this.draw();
+    const o=this.o,rows=this.series.map(s=>{const y=s.ys[bi];return `<div><i style="background:${col(s.color)}"></i>${s.name}: ${y==null?'–':(s.fmt||o.yFmt)(y)}</div>`}).join('');
+    this.tip.innerHTML=`<b>${o.xFmt(this.xs[bi])} ${o.xName}</b>${rows}`;this.tip.hidden=false;
+    const tw=this.tip.offsetWidth,th=this.tip.offsetHeight;let left=px+14;if(left+tw>this.w-4)left=px-tw-14;
+    this.tip.style.left=Math.max(4,left)+'px';this.tip.style.top=clamp(e.clientY-r.top-th/2,4,this.h-th-4)+'px';
+  }
+}
+const redrawAll=()=>charts.forEach(c=>c.draw());
+
+/* ---------- pack state ---------- */
+const S={};
+const H={t:[],v:[],i:[],tmax:[],tavg:[],tmin:[],soc:[],est:[],dv:[]};
+function resetHist(){H.t=[];H.v=Array.from({length:NS},()=>[]);H.i=[];H.tmax=[];H.tavg=[];H.tmin=[];H.soc=[];H.est=[];H.dv=[];}
+function initPack(keep){
+  rng=mulberry(11);
+  const n0=180,soh0=1-sohLoss(n0,{T:30,dod:.8,cr:.5})/100;
+  const prev=keep?{speed:S.speed,running:S.running,amb:S.amb,cool:S.cool,off:S.off,noise:S.noise,bal:S.bal,thr:S.thr,cRate:S.cRate,view:S.view}:{speed:60,running:true,amb:28,cool:'natural',off:.4,noise:true,bal:'passive',thr:10,cRate:.5,view:'overview'};
+  for(const k in S)delete S[k];Object.assign(S,prev);
+  Object.assign(S,{t:0,I:0,mode:'urban',chg:'cc',tripped:null,n0,ahOut:0,sel:[3,4],hot:null,weak:false,log:[],active:{},eBal:0,calAt:0,lastCal:0});
+  S.groups=Array.from({length:NS},(_,i)=>{const q=QC*NP*soh0*(1+rnd(-.015,.015)),r=.030*(1+rnd(-.07,.07));return{q,q0:q,r,r0:r,soc:.78+rnd(-.012,.012),v1:0,v:0,ocv:0,rg:0,R1:0,fT:1,bleed:0,role:''};});
+  S.T=Array.from({length:NS},()=>Array.from({length:NP},()=>S.amb+rnd(-.3,.3)));
+  S.rm=Array.from({length:NS},()=>Array.from({length:NP},()=>rnd(.9,1.1)));
+  S.kr=Array.from({length:NS},(_,i)=>Array.from({length:NP},(_,j)=>1+.6*(1-Math.hypot(i-3.5,j-3.5)/Math.hypot(3.5,3.5))));
+  S.est={soc:mean(S.groups.map(g=>g.soc))};
+  S.groups.forEach(g=>{g.ocv=ocvf(g.soc);g.v=g.ocv;});
+  resetHist();
+}
+const trueSoc=()=>sum(S.groups.map(g=>g.soc*g.q))/sum(S.groups.map(g=>g.q));
+const packQ=()=>sum(S.groups.map(g=>g.q))/NS;
+const sohNow=()=>100-sohLoss(S.n0+S.ahOut/QP,SOHP);
+function maxT(){let b={t:-1e9,i:0,j:0};S.T.forEach((r,i)=>r.forEach((t,j)=>{if(t>b.t)b={t,i,j};}));return b;}
+function minT(){let m=1e9;S.T.forEach(r=>r.forEach(t=>{if(t<m)m=t;}));return m;}
+function logEv(level,msg){S.log.unshift({t:S.t,level,msg});if(S.log.length>80)S.log.pop();}
+
+function demand(dt){
+  const t=S.t;
+  switch(S.mode){
+    case 'idle':return .3;
+    case 'urban':return clamp(14+11*Math.sin(t/70)+8*Math.sin(t/19+1.3)+5*Math.sin(t/6.1),-14,60);
+    case 'highway':return 40+6*Math.sin(t/31)+4*Math.sin(t/9);
+    case 'sport':return clamp(66+24*Math.sin(t/23)+14*Math.sin(t/7.3)+6*Math.sin(t/3.1),-20,110);
+    case 'charge':return chargeI(dt);
+  }
+  return 0;
+}
+function chargeI(dt){
+  if(S.chg==='done')return 0;
+  const Icc=S.cRate*QP,a=1-Math.exp(-dt/25);let lim=Infinity;
+  for(const g of S.groups){const Isg=(g.ocv-g.v1*(1-a)-4.2)/(g.rg+g.R1*a);lim=Math.min(lim,-Isg);}
+  const I=Math.min(Icc,Math.max(lim,0));
+  if(lim<Icc&&I<.05*QP){S.chg='done';S.est.soc=1;S.calAt=S.t;S.lastCal=S.t;logEv('good','Charge complete: CV taper reached 0.05 C. SOC estimate recalibrated to 100 %.');return 0;}
+  return -I;
+}
+function step(dt){
+  S.t+=dt;
+  S.groups.forEach((g,i)=>{const Tm=mean(S.T[i]);g.fT=fTr(Tm);g.rg=g.r*g.fT/NP;g.R1=.6*g.rg;});
+  let I=S.tripped?0:demand(dt);
+  S.I=I;
+  const a=1-Math.exp(-dt/25),eta=I<0?.997:1;
+  S.groups.forEach(g=>{g.v1+=(I*g.R1-g.v1)*a;g.soc=clamp(g.soc-I*eta*dt/3600/g.q,0,1.02);g.ocv=ocvf(g.soc);g.v=g.ocv-I*g.rg-g.v1;g.role='';});
+  if(I>0)S.ahOut+=I*dt/3600;
+  // estimator
+  const meas=I+S.off+(S.noise?(rng()+rng()+rng()-1.5)*.1:0);
+  S.est.soc=clamp(S.est.soc-meas*eta*dt/3600/packQ(),0,1.02);
+  // balancing
+  if(S.bal!=='off'&&Math.abs(I)<3){
+    const vs=S.groups.map(g=>g.v),vmin=Math.min(...vs),vmax=Math.max(...vs),thr=S.thr/1000;
+    if(S.bal==='passive'){S.groups.forEach(g=>{if(g.v-vmin>thr){const ib=g.v/40;g.soc-=ib*dt/3600/g.q;S.eBal+=ib*g.v*dt/3600;g.role='bleed';}});}
+    else if(vmax-vmin>thr){const hi=S.groups[vs.indexOf(vmax)],lo=S.groups[vs.indexOf(vmin)];const ib=2;hi.soc-=ib*dt/3600/hi.q;lo.soc+=ib*.9*dt/3600/lo.q;S.eBal+=ib*vmax*dt/3600*.1;hi.role='donor';lo.role='recv';}
+  }
+  // thermal
+  const Tn=S.T.map(r=>r.slice()),Cth=42,Rc=12,Rth0=S.cool==='forced'?10:25,Iq=I/NP;
+  for(let i=0;i<NS;i++){const g=S.groups[i];for(let j=0;j<NP;j++){
+    let q=Iq*Iq*g.r*g.fT*S.rm[i][j]*HEAT_K;if(S.hot&&S.hot.i===i&&S.hot.j===j)q+=S.hot.w;
+    const T=S.T[i][j];let flow=q-(T-S.amb)/(Rth0*S.kr[i][j]);
+    if(i>0)flow+=(S.T[i-1][j]-T)/Rc;if(i<NS-1)flow+=(S.T[i+1][j]-T)/Rc;if(j>0)flow+=(S.T[i][j-1]-T)/Rc;if(j<NP-1)flow+=(S.T[i][j+1]-T)/Rc;
+    Tn[i][j]=T+flow/Cth*dt;}}
+  S.T=Tn;
+  // protection
+  const mt=maxT(),minV=Math.min(...S.groups.map(g=>g.v));
+  if(!S.tripped){
+    if(mt.t>=TRIP_T)trip(`OVER-TEMPERATURE: cell S${mt.i+1}·P${mt.j+1} reached ${fx(mt.t)} °C`);
+    else if(I>0&&minV<=UV)trip(`UNDER-VOLTAGE: a cell group fell to ${fx(minV,2)} V`);
+  }
+}
+function trip(msg){S.tripped=msg;S.mode='idle';S.I=0;logEv('crit','Contactor opened. '+msg);syncMode();}
+function evalAlerts(){
+  const act={},mt=maxT(),vs=S.groups.map(g=>g.v),minV=Math.min(...vs),maxV=Math.max(...vs),spread=(maxV-minV)*1000,soc=trueSoc();
+  if(mt.t>=WARN_T)act.temp={l:'warn',m:`S${mt.i+1}·P${mt.j+1} at ${fx(mt.t)} °C (limit ${WARN_T})`};
+  if(mt.t-minT()>10)act.grad={l:'warn',m:`Thermal gradient ${fx(mt.t-minT())} K across the pack`};
+  if(minV<3.2&&S.I>0)act.vlow={l:'warn',m:`Low cell voltage ${fx(minV,2)} V`};
+  if(maxV>4.21)act.vhigh={l:'warn',m:`High cell voltage ${fx(maxV,3)} V`};
+  if(spread>60&&Math.abs(S.I)<3)act.dv={l:'warn',m:`Cell spread ${fx(spread,0)} mV at rest`};
+  if(Math.abs(S.I)>3*QP)act.oc={l:'warn',m:`Current ${fx(S.I,0)} A exceeds 3 C`};
+  if(soc<.15)act.soc={l:'warn',m:`SOC low: ${fx(soc*100,0)} %`};
+  if(S.tripped)act.trip={l:'crit',m:S.tripped};
+  const labels={temp:'Over-temp warning',grad:'Thermal gradient',vlow:'Low voltage',vhigh:'High voltage',dv:'Imbalance',oc:'Over-current',soc:'Low SOC',trip:'Protection trip'};
+  for(const k in act){if(!S.active[k])logEv(act[k].l,act[k].m);}
+  for(const k in S.active){if(!act[k])logEv('info',`Cleared: ${labels[k]}`);}
+  S.active={};for(const k in act)S.active[k]=act[k];S.labels=labels;
+}
+function sample(){
+  H.t.push(S.t/60);S.groups.forEach((g,i)=>H.v[i].push(g.v));H.i.push(S.I);
+  const mt=maxT(),all=S.T.flat();H.tmax.push(mt.t);H.tavg.push(mean(all));H.tmin.push(minT());
+  H.soc.push(trueSoc()*100);H.est.push(S.est.soc*100);
+  const vs=S.groups.map(g=>g.v);H.dv.push((Math.max(...vs)-Math.min(...vs))*1000);
+  if(H.t.length>360){for(const k of ['t','i','tmax','tavg','tmin','soc','est','dv'])H[k].shift();H.v.forEach(a=>a.shift());}
+}
+function advance(){
+  if(!S.running)return;
+  let rem=S.speed*.2;while(rem>1e-6){const dt=Math.min(2,rem);step(dt);rem-=dt;}
+  evalAlerts();sample();
+}
+
+/* ---------- views ---------- */
+const VIEWS={overview:['Overview','Live pack telemetry from a simulated 8S8P Li-ion pack'],soc:['SOC & SOH','State of charge by Coulomb counting, and capacity fade over the pack life'],thermal:['Thermal','Per-cell temperature map with 45 °C warning and 55 °C trip'],balance:['Balancing','Cell spread and the two common ways to remove it'],charge:['CC-CV charging','Constant-current then constant-voltage charge profile for one cell'],docs:['Documentation','Model equations, assumptions and limits']};
+const cellColors=i=>`var(--c${i+1})`;
+let chV,chI,chT,chSoc,chSoh,chRes,chT2,chDv,cV,cI,cS,cT;
+const kpi=(l,v,u,s,cls='',extra='')=>`<div class="kpi"><div class="l">${l}</div><div class="v ${cls}">${v}<small>${u}</small></div><div class="s">${s}</div>${extra}</div>`;
+function stateInfo(){
+  if(S.tripped)return['TRIPPED','crit'];
+  if(S.mode==='charge'){if(S.chg==='done')return['FULL','good'];return[S.I<-.1?(S.chg==='cc'?'CHARGING · CC':'CHARGING'):'IDLE','acc'];}
+  if(S.I<-.5)return['REGEN','acc'];if(S.I>1)return['DISCHARGING','acc'];return['IDLE','mute'];
+}
+function updateTop(){
+  const [t,c]=stateInfo(),el=$('#stateChip');el.textContent=t;el.className='chip '+c;
+  $('#clock').textContent=hms(S.t);
+  $('#tripBar').hidden=!S.tripped;$('#tripMsg').textContent=S.tripped?'Contactor open. '+S.tripped:'';
+}
+function updOverview(){
+  const vp=sum(S.groups.map(g=>g.v)),I=S.I,mt=maxT(),vs=S.groups.map(g=>g.v),spread=(Math.max(...vs)-Math.min(...vs))*1000,soc=trueSoc(),est=S.est.soc*100;
+  const left=I>1?hm((soc-.05)*packQ()/I):I<-1?hm((1-soc)*packQ()/-I):'–';
+  const tcls=mt.t>=TRIP_T?'crit':mt.t>=WARN_T?'warn':'';
+  const scls=est<15?'warn':'';
+  $('#kpiOv').innerHTML=
+    kpi('Pack voltage',fx(vp,2),'V',`min cell ${fx(Math.min(...vs),3)} V`)+
+    kpi('Current',fx(I,1),'A',`${fx(I/QP,2)} C · ${I>0.5?'discharge':I<-0.5?'charge/regen':'rest'}`,Math.abs(I)>3*QP?'warn':'')+
+    kpi('Power',fx(vp*I/1000,2),'kW',`${fx(S.ahOut,1)} Ah out since start`)+
+    kpi('SOC (estimated)',fx(est,1),'%',`true ${fx(soc*100,1)} %`,scls,`<div class="meter"><i style="width:${clamp(est,0,100)}%"></i></div>`)+
+    kpi('SOH',fx(sohNow(),1),'%',`${fx(S.n0+S.ahOut/QP,0)} equivalent cycles`)+
+    kpi('Max cell temp',fx(mt.t,1),'°C',`S${mt.i+1}·P${mt.j+1} · ${mt.t>=TRIP_T?'TRIP':mt.t>=WARN_T?'WARNING ≥ 45':'normal'}`,tcls)+
+    kpi('Cell spread',fx(spread,0),'mV',spread>60&&Math.abs(I)<3?'imbalance warning':'max − min cell',spread>60&&Math.abs(I)<3?'warn':'')+
+    kpi(I<-1?'Time to full':'Time to empty',hmS(I>1?(soc-.05)*packQ()/I:I<-1?(1-soc)*packQ()/-I:NaN),'h:min',I>1||I<-1?'at the present current':'no load');
+  const names=['Cell 1','Cell 2','Cell 3','Cell 4','Cell 5','Cell 6','Cell 7','Cell 8'];
+  chV.setData(H.t,H.v.map((ys,i)=>({name:names[i].replace('Cell ','S'),ys,color:cellColors(i),w:1.5,noDot:true})));
+  chI.setData(H.t,[{name:'Pack current',ys:H.i,color:'var(--c1)',area:true}]);
+  chT.setData(H.t,[{name:'Max',ys:H.tmax,color:'var(--c4)'},{name:'Avg',ys:H.tavg,color:'var(--c2)'},{name:'Min',ys:H.tmin,color:'var(--c1)'}]);
+  const act=Object.entries(S.active);
+  $('#activeAlerts').innerHTML=act.length?act.map(([k,v])=>`<span class="chip ${v.l==='crit'?'crit':'warn'}">${v.l==='crit'?'■':'▲'} ${S.labels[k].toUpperCase()}</span>`).join(''):'<span class="chip good">✓ ALL CLEAR</span>';
+  $('#log').innerHTML=S.log.slice(0,14).map(e=>`<li><time>${hms(e.t)}</time><span class="chip ${e.level==='crit'?'crit':e.level==='warn'?'warn':e.level==='good'?'good':'mute'}">${e.level==='crit'?'TRIP':e.level==='warn'?'WARN':e.level==='good'?'OK':'INFO'}</span><span>${e.msg}</span></li>`).join('')||'<li><span></span><span></span><span class="note">No events yet.</span></li>';
+}
+const MODE_NOTE={idle:'Contactor closed, 0.3 A standby draw. Good time to watch balancing.',urban:'Stop-and-go, average about 0.6 C with regen braking down to −14 A.',highway:'Steady 40 A (1.7 C). Cells in the middle of the pack heat up first.',sport:'Average 66 A, peaks near 4.5 C. On natural air a full run reaches the 55 °C trip; try forced cooling on the Thermal page.',charge:'CC-CV charger: constant current to 4.20 V per group, then tapering until 0.05 C.'};
+function syncMode(){$$('#modeSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===S.mode));$('#modeNote').textContent=MODE_NOTE[S.mode];}
+
+function updSoc(){
+  const soc=trueSoc()*100,est=S.est.soc*100,err=est-soc,hrs=Math.max((S.t-S.lastCal)/3600,1e-6);
+  chSoc.setData(H.t,[{name:'True SOC',ys:H.soc,color:'var(--c1)',fmt:v=>v.toFixed(2)+' %'},{name:'Coulomb counting',ys:H.est,color:'var(--c2)',fmt:v=>v.toFixed(2)+' %'}]);
+  $('#socKpi').innerHTML=kpi('True SOC',fx(soc,1),'%','from per-group charge')+kpi('Estimated',fx(est,1),'%','Coulomb counting')+kpi('Error',(err>=0?'+':'')+fx(err,2),'pp',Math.abs(err)>3?'recalibrate soon':'within ±3 pp',Math.abs(err)>3?'warn':'')+kpi('Drift rate',fx(err/hrs,2),'pp/h','since last recalibration');
+  $('#offO').textContent=(S.off>=0?'+':'')+fx(S.off,2)+' A';
+  $('#socEq').textContent=
+`SOC(t) = SOC₀ − (1/Q) · Σ η·(I + b)·Δt
+Q  = ${fx(packQ(),1)} Ah   (pack average, SOH-adjusted)
+η  = 0.997 charging, 1.000 discharging
+b  = ${(S.off>=0?'+':'')+fx(S.off,2)} A   sensor offset
+I  = ${fx(S.I,1)} A      (+ discharge)
+SOC ≈ ${fx(est,2)} %   vs   true ${fx(soc,2)} %`;
+}
+function updSoh(){
+  $('#sT').textContent=SOHP.T+' °C';$('#sD').textContent=Math.round(SOHP.dod*100)+' %';$('#sC').textContent=fx(SOHP.cr,1)+' C';$('#sP').textContent=fx(SOHP.cpd,2);
+  const eol=cyclesToEol(SOHP),ref={T:25,dod:.8,cr:.5},harsh={T:45,dod:1,cr:1},eolRef=cyclesToEol(ref),eolHarsh=cyclesToEol(harsh);
+  const years=eol/SOHP.cpd/365,kwh=eol*SOHP.dod*PACK_KWH;
+  const nEnd=Math.max(1200,Math.round(eol*1.4/100)*100),xs=[],a=[],b=[],r=[];
+  for(let k=0;k<=160;k++){const N=nEnd*k/160;xs.push(N);a.push(100-sohLoss(N,SOHP));b.push(100-sohLoss(N,ref));r.push(resGrow(N,SOHP));}
+  const nowN=S.n0+S.ahOut/QP;
+  chSoh.o.vlines=[{x:nowN,label:'now',color:'var(--accent)'}];chSoh.o.lines=[{y:80,label:'END OF LIFE 80 %',color:'var(--crit)',include:true}];
+  chSoh.setData(xs,[{name:'Your settings',ys:a,color:'var(--c1)',noDot:true},{name:'Reference (25 °C, 80 % DoD, 0.5 C)',ys:b,color:'var(--c8)',dash:true,w:1.4,noDot:true}]);
+  chRes.o.vlines=[{x:nowN,label:'now',color:'var(--accent)'}];chRes.o.lines=[{y:2,label:'END OF LIFE 2×',color:'var(--crit)',include:true}];
+  chRes.setData(xs,[{name:'Resistance ratio',ys:r,color:'var(--c2)',noDot:true}]);
+  $('#sohKpi').innerHTML=kpi('Cycles to 80 % SOH',String(eol),'cycles',`${fx(eol/eolRef,2)}× the reference case`)+kpi('Calendar life',fx(years,1),'years',`at ${fx(SOHP.cpd,2)} cycles/day`)+kpi('Lifetime energy',fx(kwh,0),'kWh','delivered before end of life')+kpi('SOH now',fx(sohNow(),1),'%',`${fx(nowN,0)} cycles done`);
+  const sc=[['Gentle',{T:25,dod:.6,cr:.3}],['Typical',{T:35,dod:.8,cr:.5}],['Harsh',{T:45,dod:1,cr:1}],['Your settings',SOHP]];
+  $('#scen').innerHTML='<tr><th>Scenario</th><th class="n">Temp</th><th class="n">DoD</th><th class="n">Charge</th><th class="n">Cycles to 80 %</th><th class="n">Years @1/day</th><th class="n">Energy (kWh)</th></tr>'+sc.map(([n,p],k)=>{const e=cyclesToEol(p);return `<tr class="${k===3?'hl':''}"><td>${n}</td><td class="n">${p.T} °C</td><td class="n">${Math.round(p.dod*100)} %</td><td class="n">${fx(p.cr,1)} C</td><td class="n">${e}</td><td class="n">${fx(e/365,1)}</td><td class="n">${fx(e*p.dod*PACK_KWH,0)}</td></tr>`}).join('');
+}
+
+const STOPS=[[20,[22,64,90]],[30,[43,127,134]],[38,[201,179,58]],[45,[240,138,36]],[55,[229,56,59]]];
+function heatRGB(t){let a=STOPS[0],b=STOPS[STOPS.length-1];if(t<=a[0])return a[1];if(t>=b[0])return b[1];for(let k=1;k<STOPS.length;k++){if(t<=STOPS[k][0]){a=STOPS[k-1];b=STOPS[k];break;}}const f=(t-a[0])/(b[0]-a[0]);return a[1].map((v,i)=>Math.round(v+(b[1][i]-v)*f));}
+function buildHeat(){
+  let h='<span></span>'+Array.from({length:NP},(_,j)=>`<span class="hl">P${j+1}</span>`).join('');
+  for(let i=0;i<NS;i++){h+=`<span class="hl">S${i+1}</span>`;for(let j=0;j<NP;j++)h+=`<button type="button" class="hc" data-i="${i}" data-j="${j}"></button>`;}
+  $('#heat').innerHTML=h;
+  $('#scaleBar').style.background=`linear-gradient(90deg,${STOPS.map(s=>`rgb(${s[1].join(',')}) ${(s[0]-20)/35*100}%`).join(',')})`;
+  $('#scaleTicks').innerHTML=[20,30,38,45,55].map(v=>`<span style="left:${(v-20)/35*100}%">${v}${v===45?' warn':v===55?' trip':''}</span>`).join('');
+}
+function updThermal(){
+  const mt=maxT(),all=S.T.flat(),tmin=minT(),avg=mean(all);
+  const cls=mt.t>=TRIP_T?'crit':mt.t>=WARN_T?'warn':'';
+  $('#kpiT').innerHTML=kpi('Max',fx(mt.t,1),'°C',`S${mt.i+1}·P${mt.j+1}`,cls)+kpi('Average',fx(avg,1),'°C','all 64 cells')+kpi('Min',fx(tmin,1),'°C','coolest cell')+kpi('Gradient',fx(mt.t-tmin,1),'K',mt.t-tmin>10?'warning above 10 K':'max − min',mt.t-tmin>10?'warn':'')+kpi('Cells ≥ 45 °C',String(all.filter(t=>t>=WARN_T).length),'of 64',mt.t>=TRIP_T?'TRIPPED':mt.t>=WARN_T?'WARNING':'normal',cls);
+  $$('#heat .hc').forEach(b=>{const i=+b.dataset.i,j=+b.dataset.j,t=S.T[i][j],c=heatRGB(t);b.style.background=`rgb(${c})`;b.style.color=(c[0]*.299+c[1]*.587+c[2]*.114)>150?'#101820':'#fff';b.textContent=Math.round(t);b.classList.toggle('hot',t>=WARN_T);b.classList.toggle('sel',S.sel[0]===i&&S.sel[1]===j);b.setAttribute('aria-label',`Group ${i+1} cell ${j+1}, ${fx(t,1)} degrees Celsius${t>=WARN_T?', over limit':''}`);});
+  const [i,j]=S.sel,g=S.groups[i],t=S.T[i][j],Iq=S.I/NP,q=Iq*Iq*g.r*g.fT*S.rm[i][j]*HEAT_K+(S.hot&&S.hot.i===i&&S.hot.j===j?S.hot.w:0);
+  $('#selName').textContent=`S${i+1}·P${j+1}`;
+  $('#cellDl').innerHTML=`<dt>Temperature</dt><dd>${fx(t,1)} °C</dd><dt>vs pack average</dt><dd>${t-avg>=0?'+':''}${fx(t-avg,1)} K</dd><dt>Cell current</dt><dd>${fx(Iq,2)} A</dd><dt>Heat generated</dt><dd>${fx(q,2)} W</dd><dt>Cooling path</dt><dd>${fx((S.cool==='forced'?10:25)*S.kr[i][j],1)} K/W</dd><dt>Group voltage</dt><dd>${fx(g.v,3)} V</dd><dt>Status</dt><dd>${t>=TRIP_T?'TRIP LIMIT':t>=WARN_T?'WARNING':'normal'}</dd>`;
+  $('#ambO').textContent=S.amb+' °C';$('#hotBtn').textContent=S.hot?'Hot cell active (S4·P5)':'Inject hot cell (S4·P5, +1.5 W)';
+  chT2.o.lines=[{y:WARN_T,label:'WARN 45 °C',color:'var(--warn)',include:true},{y:TRIP_T,label:'TRIP 55 °C',color:'var(--crit)'}];
+  chT2.setData(H.t,[{name:'Max',ys:H.tmax,color:'var(--c4)'},{name:'Average',ys:H.tavg,color:'var(--c2)'},{name:'Min',ys:H.tmin,color:'var(--c1)'}]);
+}
+function updBalance(){
+  const vs=S.groups.map(g=>g.v),m=mean(vs),spread=(Math.max(...vs)-Math.min(...vs))*1000,socs=S.groups.map(g=>g.soc),thr=S.thr;
+  const sd=Math.sqrt(mean(socs.map(s=>(s-mean(socs))**2)))*100;
+  const ib=S.bal==='active'?2:mean(vs)/40,ex=Math.max(...S.groups.map((g,i)=>(g.soc-Math.min(...socs))*g.q));
+  const tb=S.bal==='off'?NaN:ex/ib;
+  $('#kpiB').innerHTML=kpi('Cell spread',fx(spread,1),'mV',spread>thr?'above threshold':'within threshold',spread>thr?'warn':'good')+kpi('SOC spread (σ)',fx(sd,2),'pp','across 8 groups')+kpi('Time to balance',S.bal==='off'?'–':hmS(tb),'h:min',S.bal==='off'?'balancing disabled':Math.abs(S.I)>=3?'waiting for pack current < 3 A':S.bal==='passive'?'at ~100 mA bleed':'at 2 A transfer')+kpi(S.bal==='active'?'Energy lost in transfer':'Energy dissipated',fx(S.eBal*1000,0),'mWh','since reset');
+  const range=Math.max(40,...vs.map(v=>Math.abs(v-m)*1000))*1.1;
+  $('#bars').innerHTML=S.groups.map((g,i)=>{const dev=(g.v-m)*1000,w=Math.abs(dev)/range*50,hi=Math.abs(dev)>thr;const role=g.role==='bleed'?'<span class="stat" style="color:var(--warn)">BLEED</span>':g.role==='donor'?'<span class="stat" style="color:var(--warn)">DONOR</span>':g.role==='recv'?'<span class="stat" style="color:var(--good)">RECV</span>':'';
+    return `<div class="brow"><span class="lbl">S${i+1}</span><div class="btrack" aria-label="Group ${i+1} deviation ${fx(dev,0)} millivolts"><span class="th" style="left:${50-thr/range*50}%;width:${thr/range*100}%"></span><span class="fill ${hi?'hi':''}" style="${dev>=0?`left:50%;width:${w}%`:`right:50%;width:${w}%`}"></span></div><div class="bval">${fx(g.v,3)} V${role}<small>${dev>=0?'+':''}${fx(dev,0)} mV · SOC ${fx(g.soc*100,1)} %</small></div></div>`}).join('');
+  $$('#balSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.b===S.bal));
+  $('#thO').textContent=S.thr+' mV';$('#weakBtn').textContent=S.weak?'Weak cell active (S6)':'Weak cell (S6)';
+  chDv.o.lines=[{y:thr,label:`THRESHOLD ${thr} mV`,color:'var(--warn)',include:true}];
+  chDv.setData(H.t,[{name:'Max − min cell voltage',ys:H.dv,color:'var(--c1)',area:true,fmt:v=>v.toFixed(1)+' mV'}]);
+}
+
+/* ---------- charge sim ---------- */
+function simCharge(p){
+  const Icc=p.c*QC,cut=p.cut*QC,dt=1,a=1-Math.exp(-dt/25),out={t:[],V:[],I:[],soc:[],T:[],ccEnd:null,socCC:null};
+  let soc=p.soc0/100,v1=0,T=p.T,t=0,eIn=0,eSt=0,heat=0,ah=0,peak=T,V=0,I=0;
+  for(t=0;t<8*3600;t+=dt){
+    const r=.030*fTr(T),R1=.6*r,o=ocvf(soc),Isg=(o-v1*(1-a)-p.vcv)/(r+R1*a);
+    let cv=false;I=Icc;if(-Isg<Icc){I=Math.max(-Isg,0);cv=true;}
+    if(cv&&out.ccEnd===null){out.ccEnd=t;out.socCC=soc*100;}
+    if(cv&&I<=cut)break;
+    v1+=(-I*R1-v1)*a;V=o+I*r-v1;soc=Math.min(1,soc+I*.997*dt/3600/QC);
+    const ph=I*(V-o);T+=(ph-(T-p.T)/25)/42*dt;peak=Math.max(peak,T);
+    eIn+=V*I*dt/3600;eSt+=o*I*dt/3600;heat+=ph*dt/3600;ah+=I*dt/3600;
+    if(t%10===0){out.t.push(t/60);out.V.push(V);out.I.push(I);out.soc.push(soc*100);out.T.push(T);}
+  }
+  out.t.push(t/60);out.V.push(V);out.I.push(I);out.soc.push(soc*100);out.T.push(T);
+  if(out.ccEnd===null){out.ccEnd=t;out.socCC=soc*100;}
+  Object.assign(out,{tTot:t,eIn,eSt,heat,ah,peak,soc1:soc*100,eff:eIn>0?eSt/eIn*100:0});
+  return out;
+}
+const CH={c:.5,soc0:10,T:25,vcv:4.2,cut:.05};
+function updCharge(){
+  $('#chCO').textContent=fx(CH.c,2)+' C ('+fx(CH.c*QC,2)+' A)';$('#chSO').textContent=CH.soc0+' %';$('#chTO').textContent=CH.T+' °C';
+  const r=simCharge(CH);
+  $('#chWarn').textContent=CH.T<10?'Cold cell: internal resistance is high, so the CV phase starts early. Many BMS designs derate charging below 10 °C and block it below 0 °C to avoid lithium plating.':CH.c>1?'Above 1 C the cell heats noticeably and ages faster. Most 18650 datasheets limit standard charge to 0.5–1 C.':'';
+  $('#chKpi').innerHTML=kpi('Total time',hmS(r.tTot/3600),'h:min',`to ${fx(r.soc1,0)} % SOC`)+kpi('CC phase',fx(r.ccEnd/60,0),'min',`ends at ${fx(r.socCC,0)} % SOC`)+kpi('CV phase',fx((r.tTot-r.ccEnd)/60,0),'min',`taper to ${fx(CH.cut,2)} C`)+kpi('Peak temperature',fx(r.peak,1),'°C',r.peak>=45?'above 45 °C limit':'normal',r.peak>=45?'warn':'')+kpi('Charge efficiency',fx(r.eff,1),'%',`${fx(r.heat,2)} Wh lost as heat`)+kpi('Energy in',fx(r.eIn,2),'Wh',`${fx(r.ah,2)} Ah added`);
+  const bands=[{x0:0,x1:r.ccEnd/60,color:'var(--c1)',label:'CC'},{x0:r.ccEnd/60,x1:r.tTot/60,color:'var(--c2)',label:'CV'}];
+  [cV,cI,cS,cT].forEach(c=>c.o.bands=bands);
+  cV.o.lines=[{y:CH.vcv,label:`CV ${fx(CH.vcv,2)} V`,color:'var(--warn)',include:true}];
+  cI.o.lines=[{y:CH.cut*QC,label:`CUTOFF ${fx(CH.cut*QC,2)} A`,color:'var(--warn)',include:true}];
+  cV.setData(r.t,[{name:'Terminal voltage',ys:r.V,color:'var(--c1)',noDot:true}]);
+  cI.setData(r.t,[{name:'Current',ys:r.I,color:'var(--c2)',area:true,noDot:true}]);
+  cS.setData(r.t,[{name:'SOC',ys:r.soc,color:'var(--c3)',area:true,noDot:true,fmt:v=>v.toFixed(1)+' %'}]);
+  cT.setData(r.t,[{name:'Cell temperature',ys:r.T,color:'var(--c4)',noDot:true}]);
+  const rates=[.25,.5,1,1.5,2];if(!rates.includes(CH.c))rates.push(CH.c);rates.sort((a,b)=>a-b);
+  $('#cmp').innerHTML='<tr><th>C-rate</th><th class="n">Current</th><th class="n">Total time</th><th class="n">CC</th><th class="n">CV</th><th class="n">SOC at CV start</th><th class="n">Peak temp</th><th class="n">Efficiency</th></tr>'+rates.map(c=>{const q=simCharge({...CH,c});return `<tr class="${c===CH.c?'hl':''}"><td>${fx(c,2)} C</td><td class="n">${fx(c*QC,2)} A</td><td class="n">${fx(q.tTot/60,0)} min</td><td class="n">${fx(q.ccEnd/60,0)} min</td><td class="n">${fx((q.tTot-q.ccEnd)/60,0)} min</td><td class="n">${fx(q.socCC,0)} %</td><td class="n">${fx(q.peak,1)} °C</td><td class="n">${fx(q.eff,1)} %</td></tr>`}).join('');
+}
+
+/* ---------- docs ---------- */
+function buildDocs(){
+  $('#docRoot').innerHTML=`
+  <section class="panel"><h3>What CellSentinel is</h3>
+    <p>A browser-based battery management system (BMS) console for a simulated 8S8P pack: 64 cylindrical 18650 NMC cells, eight in parallel per group and eight groups in series. All numbers on every page come from the same physics model, so the voltage, SOC, temperature and balancing views always agree with each other.</p>
+    <p>It is a learning and portfolio tool. The model is simple enough to explain in an interview and detailed enough to show real behaviour such as voltage sag, CV taper, drift of Coulomb counting and heat spreading between cells.</p></section>
+
+  <section class="panel"><h3>1. Pack architecture and assumptions</h3>
+    <div class="tw"><table><tr><th>Parameter</th><th class="n">Value</th><th>Note</th></tr>
+    <tr><td>Configuration</td><td class="n">8S8P</td><td>64 cells; each parallel block is treated as one lumped group</td></tr>
+    <tr><td>Cell</td><td class="n">3.0 Ah, 3.0–4.2 V</td><td>NMC chemistry, 18650 format</td></tr>
+    <tr><td>Pack</td><td class="n">29.6 V, 24 Ah, 710 Wh</td><td>Typical of an electric two-wheeler pack</td></tr>
+    <tr><td>Cell resistance R0 at 25 °C</td><td class="n">30 mΩ ±7 %</td><td>3.75 mΩ per parallel group</td></tr>
+    <tr><td>Polarisation R1, τ</td><td class="n">0.6·R0, 25 s</td><td>One RC pair (first-order Thévenin)</td></tr>
+    <tr><td>Heat capacity per cell</td><td class="n">42 J/K</td><td>47 g × 0.9 J/g·K</td></tr>
+    <tr><td>Tab and busbar heating</td><td class="n">×1.3</td><td>Extra Joule heat per cell from welds and interconnects</td></tr>
+    <tr><td>Cell-to-ambient resistance</td><td class="n">25 K/W (10 forced)</td><td>×1.0 at the edge, up to ×1.6 at the centre of the pack</td></tr>
+    <tr><td>Cell-to-neighbour resistance</td><td class="n">12 K/W</td><td>Four-neighbour conduction on the 8×8 grid</td></tr>
+    <tr><td>Start of life state</td><td class="n">180 cycles</td><td>SOH about 92 % at start, capacity spread ±1.5 %</td></tr>
+    </table></div></section>
+
+  <section class="panel"><h3>2. Cell model</h3>
+    <p>Each group is a voltage source in series with R0 and one RC pair. The open-circuit voltage comes from a 12-point lookup table with linear interpolation.</p>
+    <div class="eq">V_term = OCV(SOC) − I·R0(T) − V1
+dV1/dt = (I·R1 − V1) / τ        τ = R1·C1 = 25 s
+R0(T)  = R0,25 · exp[ 2800 · (1/T − 1/298.15) ]     T in kelvin</div>
+    <p>Current is positive on discharge. The temperature term makes a cold cell about 2.4× more resistive at 0 °C than at 25 °C, which is why cold charging is limited.</p></section>
+
+  <section class="panel"><h3>3. SOC by Coulomb counting</h3>
+    <div class="eq">SOC(t) = SOC(t0) − (1/Q) · ∫ η · I_meas dt
+I_meas = I + b + noise          b = current sensor offset
+η = 0.997 (charging), 1.0 (discharging)</div>
+    <p>The page keeps two values. True SOC integrates the real current into each group using that group's own capacity. The estimated SOC integrates the measured current, which includes the offset you set on the SOC &amp; SOH page, against the average pack capacity. Their difference is the drift. At the end of a CC-CV charge the estimate is reset to 100 %, which is how many production BMS designs limit the error.</p>
+    <p>Real systems add OCV-based correction at rest and often an extended Kalman filter. This project stays with Coulomb counting so the error source is easy to see.</p></section>
+
+  <section class="panel"><h3>4. SOH degradation model</h3>
+    <div class="eq">Q_loss[%] = 0.40·√N·f_T + 0.0075·N·f_DoD·f_C
+f_T   = 2^((T − 25)/15)           ageing doubles for every 15 K rise
+f_DoD = (DoD / 0.8)^1.4           deeper cycles age the cell faster
+f_C   = 1 + 0.4·(C_charge − 0.5)  faster charging ages the cell faster
+R/R0  = 1 + 0.0006·N·f_T·f_C      end of life at 2× resistance, or 80 % capacity</div>
+    <p>The square-root term stands for SEI film growth, which slows down over time. The linear term stands for cycling wear. The coefficients are chosen so the reference case (25 °C, 80 % DoD, 0.5 C) reaches 80 % capacity at about 1000 cycles, which is typical of datasheet figures for NMC cells. This is an empirical model, not a fit to measured data.</p></section>
+
+  <section class="panel"><h3>5. Thermal model</h3>
+    <div class="eq">C_th · dT_ij/dt = 1.3·(I/8)²·R0_ij + Σ (T_nb − T_ij)/R_c − (T_ij − T_amb)/(R_th·k_ij)</div>
+    <p>Heat comes from I²R in each cell. Entropic heat and electrolyte reactions are ignored. Heat leaves through each cell's own path to ambient and through its four neighbours. Cells near the centre have a higher ambient resistance, so they run hotter, which is what a real module looks like.</p></section>
+
+  <section class="panel"><h3>6. Protection thresholds</h3>
+    <div class="tw"><table><tr><th>Condition</th><th>Level</th><th>Action</th></tr>
+    <tr><td>Any cell ≥ 45 °C</td><td>Warning</td><td>Alert and ▲ marker in heatmap</td></tr>
+    <tr><td>Any cell ≥ 55 °C</td><td>Trip</td><td>Contactor opens, profile switches to idle</td></tr>
+    <tr><td>Max − min temperature &gt; 10 K</td><td>Warning</td><td>Gradient alert</td></tr>
+    <tr><td>Group voltage &lt; 3.2 V while discharging</td><td>Warning</td><td>Low-voltage alert</td></tr>
+    <tr><td>Group voltage ≤ 3.0 V while discharging</td><td>Trip</td><td>Under-voltage cut-off</td></tr>
+    <tr><td>Group voltage &gt; 4.21 V</td><td>Warning</td><td>High-voltage alert (CV holds 4.20 V)</td></tr>
+    <tr><td>|I| &gt; 3 C (72 A)</td><td>Warning</td><td>Over-current alert</td></tr>
+    <tr><td>Cell spread &gt; 60 mV at rest</td><td>Warning</td><td>Imbalance alert</td></tr>
+    <tr><td>SOC &lt; 15 %</td><td>Warning</td><td>Low-charge alert</td></tr>
+    </table></div></section>
+
+  <section class="panel"><h3>7. Cell balancing</h3>
+    <div class="eq">Passive: I_bleed = V_cell / 40 Ω ≈ 0.1 A, for every cell above V_min + threshold
+Active:  2 A moved from the highest to the lowest cell, 90 % efficient
+Time to balance ≈ (SOC_cell − SOC_min) · Q / I_balance</div>
+    <p>With 24 Ah per group, a 3 % SOC difference is about 0.7 Ah. Passive balancing needs roughly seven hours for that, active balancing around twenty minutes. That gap is the main reason larger packs use active balancers despite their higher cost and complexity.</p></section>
+
+  <section class="panel"><h3>8. CC-CV charging</h3>
+    <div class="eq">CC:  I = C · Q  until  V_term reaches V_cv
+CV:  V_term = V_cv, current solved each step:
+     I = (V_cv − OCV − V1·(1−a)) / (R0 + R1·a)       a = 1 − e^(−Δt/τ)
+Stop when I &lt; cutoff (0.05 C)</div>
+    <p>Lowering the CV setpoint from 4.20 V to 4.10 V ends the charge near 90 % SOC. That costs capacity but reduces stress on the cell. The comparison table shows how time and heating change with C-rate. The overview page uses the same controller across all eight groups and limits current by the group with the highest voltage.</p></section>
+
+  <section class="panel"><h3>9. Limits of the model</h3>
+    <ul>
+      <li>One RC pair and no hysteresis, so OCV-based SOC at rest would be slightly optimistic.</li>
+      <li>The eight cells in a parallel block share current equally. Real blocks have small differences.</li>
+      <li>No calendar ageing, no lithium plating model and no thermal runaway.</li>
+      <li>SOH is an empirical formula. Validate against a public dataset such as the NASA or CALCE battery cycling data before drawing real conclusions.</li>
+      <li>The simulation runs in your browser, so nothing is measured from hardware.</li>
+    </ul></section>
+
+  <section class="panel"><h3>10. Extend it with hardware</h3>
+    <div class="cols"><div><h4>Sensing</h4><p>ESP32 or STM32 board, an AFE such as the TI BQ76920 or an ADS1115 with a resistor divider per cell, an INA226 for pack current, and NTC thermistors read through a mux.</p></div>
+    <div><h4>Estimation</h4><p>Replace the Coulomb counter with an extended Kalman filter that fuses current with the OCV curve, then compare both against logged lab data.</p></div>
+    <div><h4>Dashboard</h4><p>Stream readings over serial or MQTT and feed the same charts. The chart code takes plain arrays, so a live data source only has to fill them.</p></div></div></section>
+
+  <section class="panel"><h3>Interview cheat sheet</h3>
+    <div class="qa">
+      <div><b>Why does the estimated SOC drift away from the true value?</b>Any current sensor offset is integrated for the whole run, so a 0.4 A offset on a 24 Ah pack adds about 1.7 percentage points per hour. Recalibration at full charge or from OCV at rest removes it.</div>
+      <div><b>Why does charging switch from CC to CV?</b>The terminal voltage includes I·R and polarisation. Once it reaches 4.20 V the controller must lower the current to keep each cell inside its limit, so the current tapers while the cell finishes charging.</div>
+      <div><b>Why are centre cells hotter?</b>They have more hot neighbours and a longer path to ambient. The heatmap shows this directly under highway or sport load.</div>
+      <div><b>When would you choose active over passive balancing?</b>For large packs with significant capacity mismatch, where passive bleeding takes hours and wastes energy as heat.</div>
+      <div><b>What speeds up ageing the most in the SOH model?</b>Temperature, because the ageing rate doubles for every 15 K rise. The scenario table on the SOC &amp; SOH page shows the effect.</div>
+    </div></section>`;
+}
+
+/* ---------- wiring ---------- */
+function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,2400);}
+let cur='overview';
+const updaters={overview:updOverview,soc:updSoc,thermal:updThermal,balance:updBalance,charge:()=>{},docs:()=>{}};
+function show(v){
+  if(!VIEWS[v])v='overview';cur=v;
+  $$('.view').forEach(el=>el.classList.toggle('active',el.id==='v-'+v));
+  $$('#nav a').forEach(a=>{if(a.dataset.view===v)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
+  $('#viewTitle').textContent=VIEWS[v][0];$('#viewSub').textContent=VIEWS[v][1];document.title='CellSentinel';
+  if(v==='soh'||v==='soc')updSoh();if(v==='charge')updCharge();
+  updaters[v]();requestAnimationFrame(redrawAll);window.scrollTo(0,0);
+}
+function render(){updateTop();updaters[cur]();}
+function setTheme(t){const r=document.documentElement;if(t==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',t);$('#themeBtn').textContent='Theme: '+t;requestAnimationFrame(redrawAll);if(cur==='thermal')updThermal();}
+function bind(){
+  $('#modeSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(S.tripped){toast('Protection is tripped. Reset it first.');return;}S.mode=b.dataset.m;if(S.mode==='charge')S.chg='cc';syncMode();render();});
+  $('#cRate').addEventListener('input',e=>{S.cRate=+e.target.value;$('#cRateO').textContent=fx(S.cRate,2)+' C ('+fx(S.cRate*QP,1)+' A)';});
+  $('#speedSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.speed=+b.dataset.s;$$('#speedSeg button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
+  $('#playBtn').addEventListener('click',()=>{S.running=!S.running;$('#playBtn').textContent=S.running?'Pause':'Resume';});
+  $('#resetBtn').addEventListener('click',()=>{initPack(true);warm();syncAll();render();toast('Pack reset to 78 % SOC, 180 cycles.');});
+  $('#tripReset').addEventListener('click',()=>{const mt=maxT();if(mt.t>=52){toast('Cells are still above 52 °C. Wait for them to cool.');return;}S.tripped=null;S.mode='idle';logEv('info','Protection reset by operator. Profile set to idle.');syncMode();evalAlerts();render();});
+  $('#copyCsv').addEventListener('click',()=>{const rows=['sim_min,pack_A,'+H.v.map((_,i)=>`V${i+1}`).join(',')+',Tmax_C,Tavg_C,soc_true,soc_est'];H.t.forEach((t,k)=>rows.push([t.toFixed(2),H.i[k].toFixed(2),...H.v.map(a=>a[k].toFixed(4)),H.tmax[k].toFixed(2),H.tavg[k].toFixed(2),H.soc[k].toFixed(2),H.est[k].toFixed(2)].join(',')));copyText(rows.join('\n'));});
+  $('#off').addEventListener('input',e=>{S.off=+e.target.value;updSoc();});
+  $('#noise').addEventListener('change',e=>{S.noise=e.target.checked;});
+  $('#recal').addEventListener('click',()=>{S.est.soc=trueSoc();S.lastCal=S.t;logEv('info','SOC estimate recalibrated to true value.');updSoc();});
+  const sohIn=(id,k,f=1)=>$(id).addEventListener('input',e=>{SOHP[k]=+e.target.value*f;updSoh();});
+  sohIn('#pT','T');sohIn('#pD','dod',.01);sohIn('#pC','cr');sohIn('#pP','cpd');
+  $('#heat').addEventListener('click',e=>{const b=e.target.closest('.hc');if(!b)return;S.sel=[+b.dataset.i,+b.dataset.j];updThermal();});
+  $('#amb').addEventListener('input',e=>{S.amb=+e.target.value;$('#ambO').textContent=S.amb+' °C';});
+  $('#cool').addEventListener('change',e=>{S.cool=e.target.value;});
+  const clr=()=>{S.hot=null;S.weak=false;S.groups[5].r=S.groups[5].r0;S.groups[5].q=S.groups[5].q0;logEv('info','Injected faults cleared.');render();};
+  $('#hotBtn').addEventListener('click',()=>{S.hot={i:3,j:4,w:1.5};S.sel=[3,4];logEv('warn','Fault injected: internal heating of 1.5 W in cell S4·P5.');render();});
+  $('#clrFault').addEventListener('click',clr);$('#clrFault2').addEventListener('click',clr);
+  $('#weakBtn').addEventListener('click',()=>{S.weak=true;const g=S.groups[5];g.r=g.r0*2.2;g.q=g.q0*.82;logEv('warn','Fault injected: group S6 has 18 % less capacity and 2.2× resistance.');render();});
+  $('#mkImb').addEventListener('click',()=>{S.groups.forEach(g=>{g.soc=clamp(g.soc+(rng()-.5)*.08,0,1);});logEv('info','Random SOC imbalance of up to ±4 % added.');render();});
+  $('#balSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.bal=b.dataset.b;render();});
+  $('#th').addEventListener('input',e=>{S.thr=+e.target.value;render();});
+  const chIn=(id,k,f=1)=>$(id).addEventListener('input',e=>{CH[k]=+e.target.value*f;updCharge();});
+  chIn('#chC','c');chIn('#chS','soc0');chIn('#chT','T');chIn('#chV2','vcv');chIn('#chK','cut');
+  $('#themeBtn').addEventListener('click',()=>{const o=['auto','light','dark'],t=document.documentElement.getAttribute('data-theme')||'auto';setTheme(o[(o.indexOf(t)+1)%3]);});
+  window.addEventListener('hashchange',()=>show(location.hash.slice(1)));
+}
+async function copyText(txt){try{await navigator.clipboard.writeText(txt);toast('CSV copied to clipboard');}catch(e){const ta=document.createElement('textarea');ta.value=txt;document.body.append(ta);ta.select();let ok=false;try{ok=document.execCommand('copy');}catch(_){}ta.remove();toast(ok?'CSV copied to clipboard':'Copy was blocked by the browser');}}
+function syncAll(){
+  syncMode();$('#cRate').value=S.cRate;$('#cRateO').textContent=fx(S.cRate,2)+' C ('+fx(S.cRate*QP,1)+' A)';
+  $('#off').value=S.off;$('#noise').checked=S.noise;$('#amb').value=S.amb;$('#cool').value=S.cool;$('#th').value=S.thr;
+  $$('#speedSeg button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.s===S.speed));$('#playBtn').textContent=S.running?'Pause':'Resume';
+}
+function warm(){const run=S.running;S.running=true;for(let k=0;k<90;k++)advance();S.running=run;}
+function init(){
+  initPack(false);buildDocs();buildHeat();
+  const f2=v=>v.toFixed(2),f1=v=>v.toFixed(1),pct=v=>v.toFixed(0)+'%';
+  chV=new Chart($('#chV'),{h:250,yFmt:(v,a)=>v.toFixed(a?2:3),label:'Cell voltages over time'});
+  chI=new Chart($('#chI'),{h:180,yFmt:(v,a)=>v.toFixed(a?0:1),label:'Pack current over time'});
+  chT=new Chart($('#chT'),{h:180,yFmt:f1,label:'Pack temperatures over time',lines:[{y:WARN_T,label:'45 °C',color:'var(--warn)',include:true}]});
+  chSoc=new Chart($('#chSoc'),{h:250,yFmt:(v,a)=>v.toFixed(a?0:1),label:'True and estimated SOC'});
+  chSoh=new Chart($('#chSoh'),{h:240,xName:'cycles',xFmt:v=>v.toFixed(0),yFmt:(v,a)=>v.toFixed(a?0:1)+'%',label:'Capacity retention versus cycles'});
+  chRes=new Chart($('#chRes'),{h:240,xName:'cycles',xFmt:v=>v.toFixed(0),yFmt:(v,a)=>v.toFixed(2)+'×',label:'Resistance growth versus cycles'});
+  chT2=new Chart($('#chT2'),{h:230,yFmt:f1,label:'Pack temperature history'});
+  chDv=new Chart($('#chDv'),{h:170,yFmt:(v,a)=>v.toFixed(a?0:1),label:'Cell voltage spread'});
+  cV=new Chart($('#cV'),{h:200,yFmt:f2,xFmt:v=>v.toFixed(0),label:'Charging voltage'});
+  cI=new Chart($('#cI'),{h:200,yFmt:f2,label:'Charging current'});
+  cS=new Chart($('#cS'),{h:200,yMin:0,yMax:100,yFmt:(v,a)=>v.toFixed(a?0:1),label:'Charging SOC'});
+  cT=new Chart($('#cT'),{h:200,yFmt:f1,label:'Charging temperature'});
+  bind();syncAll();warm();evalAlerts();
+  setInterval(()=>{advance();render();},200);
+  show(location.hash.slice(1)||'overview');
+  window.CS={S,H,step,advance,show,setTheme};
+}
+init();
+})();
+</script>
